@@ -22,8 +22,8 @@ RiskForge automates that workflow.
                            │
                            ▼
                    ┌─────────────────┐
-                   │   Data Ingestion│
-                   │     yfinance    │
+                   │  Data Ingestion │
+                   │    yfinance     │
                    └────────┬────────┘
                             │
                             ▼
