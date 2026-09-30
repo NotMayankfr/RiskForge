@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import math
 import logging
-import time
 from typing import Any
 
 from google import genai
@@ -358,47 +357,48 @@ def generate_memo(
         credit_fw=credit_fw or {},
     )
 
-    # Model fallback chain
-    models_to_try = [
-        GEMINI_MODEL,
-        "models/gemini-3.5-flash",
-        "models/gemini-3.1-flash-lite",
-        "models/gemini-flash-latest",
-    ]
+    # Public-demo configuration:
+    # Make at most ONE Gemini API request per memo-generation call.
+    # If it fails, use the deterministic fallback rather than trying
+    # multiple models/retries and consuming additional API quota.
 
-    last_error = None
-    for model in models_to_try:
-        for attempt in range(3):
-            try:
-                if attempt > 0:
-                    time.sleep(2 ** attempt)
+    try:
+        client = _get_client()
 
-                client = _get_client()
-                response = client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                )
-                memo_text = response.text or ""
-                if not memo_text.strip():
-                    raise ValueError("Empty response from Gemini API.")
-                logger.info("[%s] Credit memo generated via %s.", company["name"], model)
-                return memo_text
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+        )
 
-            except Exception as exc:
-                last_error = exc
-                msg = str(exc)
-                if any(x in msg for x in ["503", "UNAVAILABLE", "overloaded", "429", "RESOURCE_EXHAUSTED"]):
-                    logger.warning("[%s] Model %s quota/overload (attempt %d/3).",
-                                   company["name"], model, attempt + 1)
-                    if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-                        break  # quota exhausted — try next model
-                    continue
-                else:
-                    logger.warning("[%s] Model %s error: %s", company["name"], model, exc)
-                    break
+        memo_text = response.text or ""
 
-    logger.error("[%s] All models failed: %s — using fallback memo.", company["name"], last_error)
-    return _fallback_memo(company, ttm, flags, risk_rating, debt_cap, refi, covenants)
+        if not memo_text.strip():
+            raise ValueError("Empty response from Gemini API.")
+
+        logger.info(
+            "[%s] Credit memo generated via %s.",
+            company["name"],
+            GEMINI_MODEL,
+        )
+
+        return memo_text
+
+    except Exception as exc:
+        logger.warning(
+            "[%s] Gemini request failed; using deterministic fallback: %s",
+            company["name"],
+            exc,
+        )
+
+        return _fallback_memo(
+            company,
+            ttm,
+            flags,
+            risk_rating,
+            debt_cap,
+            refi,
+            covenants,
+        )
 
 
 def _fallback_memo(
