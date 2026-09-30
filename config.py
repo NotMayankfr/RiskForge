@@ -12,7 +12,7 @@ import os
 
 # ── Gemini API ───────────────────────────────────────────────────────────────
 GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-GEMINI_MODEL: str = "gemini-3.8-flash"
+GEMINI_MODEL: str = "gemini-3.5-flash"
 
 # ── Defense sector companies ─────────────────────────────────────────────────
 COMPANIES: list[dict] = [
