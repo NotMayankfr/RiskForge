@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import logging
+import time
 from typing import Any
 
 from google import genai
@@ -362,43 +363,56 @@ def generate_memo(
     # If it fails, use the deterministic fallback rather than trying
     # multiple models/retries and consuming additional API quota.
 
-    try:
-        client = _get_client()
+    last_exc = None
+    for attempt in range(3):
+        try:
+            if attempt > 0:
+                time.sleep(2 ** attempt)
 
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-        )
+            client = _get_client()
 
-        memo_text = response.text or ""
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+            )
 
-        if not memo_text.strip():
-            raise ValueError("Empty response from Gemini API.")
+            memo_text = response.text or ""
 
-        logger.info(
-            "[%s] Credit memo generated via %s.",
-            company["name"],
-            GEMINI_MODEL,
-        )
+            if not memo_text.strip():
+                raise ValueError("Empty response from Gemini API.")
 
-        return memo_text
+            logger.info(
+                "[%s] Credit memo generated via %s.",
+                company["name"],
+                GEMINI_MODEL,
+            )
 
-    except Exception as exc:
-        logger.warning(
-            "[%s] Gemini request failed; using deterministic fallback: %s",
-            company["name"],
-            exc,
-        )
+            return memo_text
 
-        return _fallback_memo(
-            company,
-            ttm,
-            flags,
-            risk_rating,
-            debt_cap,
-            refi,
-            covenants,
-        )
+        except Exception as exc:
+            last_exc = exc
+            msg = str(exc)
+            if "503" in msg or "429" in msg or "UNAVAILABLE" in msg or "RESOURCE_EXHAUSTED" in msg or "overloaded" in msg.lower():
+                logger.warning("[%s] Gemini API overloaded, retrying (attempt %d/3)...", company["name"], attempt + 1)
+                continue
+            else:
+                break
+
+    logger.warning(
+        "[%s] Gemini request failed after retries; using deterministic fallback: %s",
+        company["name"],
+        last_exc,
+    )
+
+    return _fallback_memo(
+        company,
+        ttm,
+        flags,
+        risk_rating,
+        debt_cap,
+        refi,
+        covenants,
+    )
 
 
 def _fallback_memo(
