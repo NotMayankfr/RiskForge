@@ -13,7 +13,7 @@ Uses the SQL data store (db_manager.py) to identify:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import db_manager
@@ -22,9 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 # ── Deterioration direction rules ───────────────────────────────────────────
-# "rising" = a rising value is concerning
-# "falling" = a falling value is concerning
-
 METRIC_CONCERN_DIRECTION: dict[str, str] = {
     # Leverage — rising is worse
     "debt_ebitda":      "rising",
@@ -53,6 +50,16 @@ METRIC_CONCERN_DIRECTION: dict[str, str] = {
     "cfo":              "falling",
     "cash":             "falling",
     "total_equity":     "falling",
+}
+
+# Metrics where a negative latest value (< 0) indicates distress and must never be labeled "Strengthening"
+NEGATIVE_DISTRESS_METRICS = {
+    "ebit_coverage",
+    "ebitda_coverage",
+    "ebitda_margin",
+    "net_margin",
+    "fcf_margin",
+    "roce",
 }
 
 # Human-readable display names
@@ -354,15 +361,21 @@ def analyze_ticker(
     """
     Run full trend analysis for a single ticker.
 
-    Reads historical snapshots from the SQL database, computes
-    period-over-period changes for all tracked metrics, detects
-    deterioration streaks, identifies drivers, and updates the
+    Reads historical snapshots from the SQL database, filters out empty stub
+    periods, computes period-over-period changes for all tracked metrics,
+    detects deterioration streaks, identifies drivers, and updates the
     existing risk assessment.
     """
-    history = db_manager.get_ticker_history(ticker, db_path)
+    raw_history = db_manager.get_ticker_history(ticker, db_path)
+
+    # Filter out completely empty yfinance stub rows where core financials are all NULL
+    history = [
+        h for h in raw_history
+        if any(h.get(k) is not None for k in ("revenue", "ebitda", "total_assets", "total_debt"))
+    ]
 
     if len(history) < 2:
-        logger.warning("[%s] Fewer than 2 periods — cannot analyze trends.", ticker)
+        logger.warning("[%s] Fewer than 2 valid periods — cannot analyze trends.", ticker)
         return None
 
     company_name = history[0].get("company_name", ticker)
@@ -383,11 +396,16 @@ def analyze_ticker(
     ]
 
     for metric in KEY_RATIOS:
-        changes: list[PeriodChange] = []
+        # Only evaluate across periods where this metric actually has non-null data
+        valid_entries = [(idx_h, h) for idx_h, h in enumerate(history) if h.get(metric) is not None]
+        if len(valid_entries) < 2:
+            # Skip metrics that lack at least 2 valid periods (do not misclassify as stable)
+            continue
 
-        for i in range(len(history) - 1):
-            old_row = history[i]
-            new_row = history[i + 1]
+        changes: list[PeriodChange] = []
+        for i in range(len(valid_entries) - 1):
+            _, old_row = valid_entries[i]
+            _, new_row = valid_entries[i + 1]
             old_val = old_row.get(metric)
             new_val = new_row.get(metric)
 
@@ -418,13 +436,25 @@ def analyze_ticker(
         total_imp = sum(1 for c in changes if c.direction == "improved")
 
         display = METRIC_DISPLAY_NAMES.get(metric, metric)
-        earliest_val = history[0].get(metric)
-        latest_val = history[-1].get(metric)
+        first_idx, first_row = valid_entries[0]
+        last_idx, last_row = valid_entries[-1]
+        prev_idx, _ = valid_entries[-2]
+
+        earliest_val = first_row.get(metric)
+        latest_val = last_row.get(metric)
         total_pct = _pct_change(earliest_val, latest_val)
+
+        # Guard: if a coverage or profitability metric is negative in the latest period,
+        # it is in distress and must never be classified as "Improving" or "Stable".
+        is_negative_distress = (
+            metric in NEGATIVE_DISTRESS_METRICS
+            and latest_val is not None
+            and latest_val < 0
+        )
 
         if consecutive_det >= 2:
             severity = "WARNING"
-            drivers = _identify_drivers(metric, history, -2, -1)
+            drivers = _identify_drivers(metric, history, prev_idx, last_idx)
             msg = (
                 f"{display} has deteriorated for {consecutive_det} consecutive "
                 f"periods ({period_range}). "
@@ -448,7 +478,7 @@ def analyze_ticker(
             ))
 
         elif consecutive_det == 1:
-            drivers = _identify_drivers(metric, history, -2, -1)
+            drivers = _identify_drivers(metric, history, prev_idx, last_idx)
             msg = f"{display} deteriorated in the latest period. "
             if drivers:
                 msg += "Driven by: " + "; ".join(drivers) + "."
@@ -466,8 +496,24 @@ def analyze_ticker(
                 message=msg,
             ))
 
+        elif is_negative_distress:
+            drivers = _identify_drivers(metric, history, first_idx, last_idx)
+            msg = f"{display} remains negative in the latest period ({latest_val:.2f}), indicating operating/coverage strain."
+            deteriorating_alerts.append(TrendAlert(
+                metric=metric,
+                display_name=display,
+                severity="CAUTION",
+                consecutive_periods=1,
+                latest_value=latest_val,
+                earliest_value=earliest_val,
+                total_change_pct=total_pct,
+                changes=changes,
+                drivers=drivers,
+                message=msg,
+            ))
+
         elif total_det > 0 and total_det > total_imp:
-            drivers = _identify_drivers(metric, history, 0, -1)
+            drivers = _identify_drivers(metric, history, first_idx, last_idx)
             msg = (
                 f"{display} has shown a net deteriorating trend over the "
                 f"analysis period ({total_det} deteriorations vs "
@@ -487,7 +533,7 @@ def analyze_ticker(
             ))
 
         elif total_imp > total_det and total_imp >= 2:
-            drivers = _identify_drivers(metric, history, 0, -1)
+            drivers = _identify_drivers(metric, history, first_idx, last_idx)
             msg = f"{display} has been improving over {total_imp} periods."
 
             improving_alerts.append(TrendAlert(
@@ -510,13 +556,14 @@ def analyze_ticker(
     deteriorating_alerts.sort(key=lambda a: severity_order.get(a.severity, 99))
 
     warn_count = sum(1 for a in deteriorating_alerts if a.severity == "WARNING")
+    caution_count = sum(1 for a in deteriorating_alerts if a.severity == "CAUTION")
     improving_count = len(improving_alerts)
 
-    if warn_count >= 3:
+    if warn_count >= 3 or (warn_count + caution_count >= 4 and improving_count == 0):
         trajectory = "DETERIORATING"
     elif warn_count >= 1 and improving_count <= warn_count:
         trajectory = "DETERIORATING"
-    elif improving_count >= 3 and warn_count == 0:
+    elif improving_count >= 3 and warn_count == 0 and caution_count == 0:
         trajectory = "IMPROVING"
     elif len(deteriorating_alerts) == 0 and improving_count == 0:
         trajectory = "STABLE"
@@ -531,7 +578,7 @@ def analyze_ticker(
     if trajectory == "DETERIORATING":
         summary_parts.append(
             f"{company_name}'s financial health is deteriorating. "
-            f"{warn_count} key metrics show sustained negative trends."
+            f"{len(deteriorating_alerts)} key metrics show negative trends or operating strain."
         )
     elif trajectory == "IMPROVING":
         summary_parts.append(
@@ -541,7 +588,7 @@ def analyze_ticker(
     elif trajectory == "MIXED":
         summary_parts.append(
             f"{company_name} shows a mixed financial trajectory. "
-            f"{len(deteriorating_alerts)} metrics are worsening while "
+            f"{len(deteriorating_alerts)} metrics are under pressure while "
             f"{improving_count} are improving."
         )
     else:
@@ -553,8 +600,7 @@ def analyze_ticker(
     if deteriorating_alerts:
         worst = deteriorating_alerts[0]
         summary_parts.append(
-            f"The most concerning trend is {worst.display_name} "
-            f"({worst.severity})."
+            f"Primary concern: {worst.display_name} ({worst.severity})."
         )
 
     summary_parts.append(risk_rationale)

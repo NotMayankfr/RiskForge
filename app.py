@@ -882,7 +882,11 @@ if "analysis_results" in st.session_state and st.session_state.analysis_results:
                             st.caption("All tracked credit ratios moved by more than 5% over the analysis horizon.")
 
                     # 3. Historical SQL Ratio Matrix & Chart
-                    history = db_manager.get_ticker_history(r["ticker"])
+                    raw_history = db_manager.get_ticker_history(r["ticker"])
+                    history = [
+                        h for h in raw_history
+                        if any(h.get(k) is not None for k in ("revenue", "ebitda", "total_assets", "total_debt"))
+                    ]
                     if history:
                         st.markdown(
                             '<div class="rf-section-header">HISTORICAL FINANCIAL &amp; RATIO MATRIX (SQL STORE)</div>',
@@ -906,10 +910,10 @@ if "analysis_results" in st.session_state and st.session_state.analysis_results:
                         display_df = hist_df[avail_cols].copy()
                         for b_col in ["revenue", "ebitda", "total_debt", "fcf"]:
                             if b_col in display_df.columns:
-                                display_df[b_col] = (display_df[b_col] / 1e9).round(2)
+                                display_df[b_col] = (pd.to_numeric(display_df[b_col], errors="coerce") / 1e9).round(2)
                         for r_col in ["debt_ebitda", "net_debt_ebitda", "ebit_coverage", "ebitda_margin", "current_ratio", "z_score"]:
                             if r_col in display_df.columns:
-                                display_df[r_col] = display_df[r_col].round(2)
+                                display_df[r_col] = pd.to_numeric(display_df[r_col], errors="coerce").round(2)
                         rename_map = dict(matrix_cols)
                         display_df = display_df.rename(columns=rename_map).set_index("Fiscal Year")
                         st.dataframe(display_df, use_container_width=True)
@@ -936,6 +940,8 @@ if "analysis_results" in st.session_state and st.session_state.analysis_results:
                         )
                         if chart_metrics:
                             chart_data = hist_df[["period_year"] + chart_metrics].dropna(subset=["period_year"]).copy()
+                            for cm in chart_metrics:
+                                chart_data[cm] = pd.to_numeric(chart_data[cm], errors="coerce")
                             chart_data["period_year"] = chart_data["period_year"].astype(str)
                             chart_data = chart_data.set_index("period_year")
                             st.line_chart(chart_data)
