@@ -357,8 +357,23 @@ fcf_growth = st.sidebar.slider(
 
 PROJECTION_ASSUMPTIONS["revenue_growth_pct"] = fcf_growth
 
+# Initialize SQLite store and show live status in Sidebar
+db_manager.initialize_db()
+st.sidebar.markdown("---")
+st.sidebar.subheader("🗄️ SQL Historical Data Store")
+try:
+    _stored_stats = db_manager.run_custom_query(
+        "SELECT COUNT(DISTINCT ticker) AS companies, COUNT(*) AS snapshots FROM ratio_snapshots"
+    )
+    _num_co = _stored_stats[0]["companies"] if _stored_stats else 0
+    _num_snap = _stored_stats[0]["snapshots"] if _stored_stats else 0
+    st.sidebar.caption(f"SQLite Store: **{_num_co}** companies · **{_num_snap}** period snapshots")
+except Exception:
+    st.sidebar.caption("SQLite Store: Ready")
+
 # --- Main Content UI ---
-st.title("🛡️ RiskForge — Global Credit Intelligence")
+st.title("🛡️ RiskForge — Financial Intelligence")
+st.caption("**Historical trends · SQL-powered analytics · Risk deterioration detection**")
 
 analysis_mode = st.radio("Choose Analysis Mode:", ["Specific Company (Ticker)", "Entire Sector (Top 10 Companies)"], horizontal=True)
 
@@ -396,7 +411,7 @@ if st.button("Run Comprehensive Analysis", type="primary"):
         st.stop()
         
     results = []
-    progress_text = "Running analytical modules..."
+    progress_text = "Running analytical modules & SQL trend intelligence..."
     my_bar = st.progress(0, text=progress_text)
     
     for idx, co in enumerate(companies):
@@ -493,10 +508,20 @@ if st.button("Run Comprehensive Analysis", type="primary"):
         my_bar.progress((idx + 1) / len(companies), text=f"Analyzed {ticker}...")
 
     my_bar.empty()
-    
+    st.session_state.analysis_results = results
+    st.session_state.last_analysis_mode = analysis_mode
+    st.session_state.last_sector_str = sector_str
+    st.session_state.last_market_choice = market_choice
+
+if "analysis_results" in st.session_state and st.session_state.analysis_results:
+    results = st.session_state.analysis_results
+    active_mode = st.session_state.get("last_analysis_mode", analysis_mode)
+    active_sector = st.session_state.get("last_sector_str", sector_str)
+    active_market = st.session_state.get("last_market_choice", market_choice)
+
     # --- RENDER SECTOR SUMMARY (If applicable) ---
-    if analysis_mode == "Entire Sector (Top 10 Companies)" and results:
-        st.header(f"🌐 Sector Aggregate: {sector_str} ({market_choice})")
+    if active_mode == "Entire Sector (Top 10 Companies)" and results:
+        st.header(f"🌐 Sector Aggregate: {active_sector} ({active_market})")
         
         s_col1, s_col2, s_col3 = st.columns(3)
         s_col1.metric("Total Companies Analyzed", len(results))
@@ -532,29 +557,110 @@ if st.button("Run Comprehensive Analysis", type="primary"):
         with tabs[i]:
             st.subheader(f"{r['ticker']} - Credit Profile")
             
-            # Badges
+            # Badges & Dynamic Risk Assessment Summary Banner
             intel_badge = r.get("intelligence")
             traj_label = intel_badge.overall_trajectory if intel_badge else "N/A"
             st.markdown(
-                f"**Baseline Risk:** `{r.get('baseline_risk', r['risk'])}` | "
-                f"**Updated Risk Assessment:** `{r['risk']}` | "
-                f"**Trajectory:** `{traj_label}` | "
+                f"**Baseline Risk:** `{r.get('baseline_risk', r['risk'])}` → "
+                f"**Trend-Adjusted Risk Assessment:** `{r['risk']}` | "
+                f"**SQL Trajectory:** `{traj_label}` | "
                 f"**Refinancing Risk:** `{r['refi'].get('classification', 'N/A')}`"
             )
+            if intel_badge:
+                st.info(
+                    f"**🛡️ SQL Financial Intelligence Summary ({intel_badge.period_range}):** "
+                    f"{intel_badge.summary}"
+                )
             
-            # Sub-tabs for deep dive
+            # Sub-tabs for deep dive — Financial Intelligence featured alongside AI Credit Memo
             subtabs = st.tabs([
+                "📊 Financial Intelligence (SQL & Trends)",
                 "📝 AI Credit Memo",
                 "Overview & Trends",
                 "Debt Capacity & Covenants",
                 "Cash Flow & Stress",
-                "📊 Financial Intelligence",
             ])
-            
+
             with subtabs[0]:
-                st.markdown(r["memo"])
+                intel = r.get("intelligence")
+                if intel is None:
+                    st.info("Insufficient historical data for trend analysis (need ≥2 periods).")
+                else:
+                    traj_colors = {
+                        "DETERIORATING": "red",
+                        "MIXED": "orange",
+                        "STABLE": "green",
+                        "IMPROVING": "green",
+                    }
+                    traj_color = traj_colors.get(intel.overall_trajectory, "grey")
+                    st.markdown(
+                        f"**Financial Trajectory:** "
+                        f"<span style='color: {traj_color}; font-weight: bold;'>"
+                        f"{intel.overall_trajectory}</span> "
+                        f"({intel.period_range}, {intel.total_periods} periods)",
+                        unsafe_allow_html=True,
+                    )
+
+                    k1, k2, k3 = st.columns(3)
+                    k1.metric("Baseline Point-in-Time Risk", intel.baseline_risk_rating)
+                    k2.metric("Trend-Adjusted Risk", intel.updated_risk_rating, delta=intel.risk_action)
+                    k3.metric("Deteriorating Metrics Detected", len(intel.deteriorating))
+
+                    report_md = intelligence_report.format_intelligence_report(intel)
+                    st.markdown(report_md)
+
+                    st.markdown("### 📈 Metric Time Series (SQL Store)")
+                    history = db_manager.get_ticker_history(r["ticker"])
+                    if history:
+                        chart_metrics = st.multiselect(
+                            "Select metrics to chart",
+                            options=[
+                                "debt_ebitda", "net_debt_ebitda",
+                                "ebit_coverage", "ebitda_coverage",
+                                "current_ratio", "z_score",
+                                "ebitda_margin", "fcf_margin", "roce",
+                            ],
+                            default=["debt_ebitda", "ebit_coverage", "z_score"],
+                            key=f"chart_metrics_{r['ticker']}",
+                        )
+
+                        if chart_metrics:
+                            chart_data = pd.DataFrame(history)
+                            chart_data = chart_data[["period_year"] + chart_metrics].dropna(subset=["period_year"])
+                            chart_data = chart_data.set_index("period_year")
+                            st.line_chart(chart_data)
+
+                    with st.expander("🔍 SQL Query Explorer (Historical Financial Data Store)", expanded=True):
+                        st.caption(
+                            "Run custom read-only SQL queries against the historical data store. "
+                            "Table: `ratio_snapshots`."
+                        )
+                        default_query = (
+                            f"SELECT period_year, revenue, ebitda, total_debt, "
+                            f"debt_ebitda, ebit_coverage, z_score, risk_rating "
+                            f"FROM ratio_snapshots WHERE ticker = '{r['ticker']}' "
+                            f"ORDER BY period_year ASC"
+                        )
+                        user_query = st.text_area(
+                            "SQL Query",
+                            value=default_query,
+                            height=100,
+                            key=f"sql_query_{r['ticker']}",
+                        )
+                        if st.button("Run Query", key=f"run_sql_{r['ticker']}"):
+                            try:
+                                results_sql = db_manager.run_custom_query(user_query)
+                                if results_sql:
+                                    st.dataframe(pd.DataFrame(results_sql), use_container_width=True)
+                                else:
+                                    st.info("Query returned no results.")
+                            except Exception as e:
+                                st.error(f"SQL Error: {e}")
 
             with subtabs[1]:
+                st.markdown(r["memo"])
+
+            with subtabs[2]:
                 st.markdown("### Strengths & Weaknesses")
                 c1, c2 = st.columns(2)
                 with c1:
@@ -581,7 +687,7 @@ if st.button("Run Comprehensive Analysis", type="primary"):
                 st.bar_chart(chart_df[["Revenue", "EBITDA"]])
                 st.line_chart(chart_df[["Total Debt"]])
                 
-            with subtabs[2]:
+            with subtabs[3]:
                 dc = r["debt_cap"]
                 c1, c2 = st.columns(2)
                 with c1:
@@ -597,7 +703,7 @@ if st.button("Run Comprehensive Analysis", type="primary"):
                     else:
                         st.info("No covenant data available.")
 
-            with subtabs[3]:
+            with subtabs[4]:
                 c1, c2 = st.columns(2)
                 with c1:
                     st.markdown("### Refinancing Risk")
@@ -615,80 +721,4 @@ if st.button("Run Comprehensive Analysis", type="primary"):
                                 "Interest Cov": f"{s.get('stressed_ebit_coverage', float('nan')):.1f}x"
                             })
                     st.dataframe(pd.DataFrame(stress_data), hide_index=True)
-
-            with subtabs[4]:
-                intel = r.get("intelligence")
-                if intel is None:
-                    st.info("Insufficient historical data for trend analysis (need ≥2 periods).")
-                else:
-                    traj_colors = {
-                        "DETERIORATING": "red",
-                        "MIXED": "orange",
-                        "STABLE": "green",
-                        "IMPROVING": "green",
-                    }
-                    traj_color = traj_colors.get(intel.overall_trajectory, "grey")
-                    st.markdown(
-                        f"**Financial Trajectory:** "
-                        f"<span style='color: {traj_color}; font-weight: bold;'>"
-                        f"{intel.overall_trajectory}</span> "
-                        f"({intel.period_range}, {intel.total_periods} periods)",
-                        unsafe_allow_html=True,
-                    )
-
-                    k1, k2, k3 = st.columns(3)
-                    k1.metric("Baseline Risk", intel.baseline_risk_rating)
-                    k2.metric("Trend-Adjusted Risk", intel.updated_risk_rating, delta=intel.risk_action)
-                    k3.metric("Deteriorating Metrics", len(intel.deteriorating))
-
-                    report_md = intelligence_report.format_intelligence_report(intel)
-                    st.markdown(report_md)
-
-                    st.markdown("### 📈 Metric Time Series (SQL Store)")
-                    history = db_manager.get_ticker_history(r["ticker"])
-                    if history:
-                        chart_metrics = st.multiselect(
-                            "Select metrics to chart",
-                            options=[
-                                "debt_ebitda", "net_debt_ebitda",
-                                "ebit_coverage", "ebitda_coverage",
-                                "current_ratio", "z_score",
-                                "ebitda_margin", "fcf_margin", "roce",
-                            ],
-                            default=["debt_ebitda", "ebit_coverage", "z_score"],
-                            key=f"chart_metrics_{r['ticker']}",
-                        )
-
-                        if chart_metrics:
-                            chart_data = pd.DataFrame(history)
-                            chart_data = chart_data[["period_year"] + chart_metrics].dropna(subset=["period_year"])
-                            chart_data = chart_data.set_index("period_year")
-                            st.line_chart(chart_data)
-
-                    with st.expander("🔍 SQL Query Explorer (Historical Financial Data Store)"):
-                        st.caption(
-                            "Run custom read-only SQL queries against the historical data store. "
-                            "Table: `ratio_snapshots`."
-                        )
-                        default_query = (
-                            f"SELECT period_year, revenue, ebitda, total_debt, "
-                            f"debt_ebitda, ebit_coverage, z_score, risk_rating "
-                            f"FROM ratio_snapshots WHERE ticker = '{r['ticker']}' "
-                            f"ORDER BY period_year ASC"
-                        )
-                        user_query = st.text_area(
-                            "SQL Query",
-                            value=default_query,
-                            height=100,
-                            key=f"sql_query_{r['ticker']}",
-                        )
-                        if st.button("Run Query", key=f"run_sql_{r['ticker']}"):
-                            try:
-                                results_sql = db_manager.run_custom_query(user_query)
-                                if results_sql:
-                                    st.dataframe(pd.DataFrame(results_sql), use_container_width=True)
-                                else:
-                                    st.info("Query returned no results.")
-                            except Exception as e:
-                                st.error(f"SQL Error: {e}")
 
