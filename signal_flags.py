@@ -72,7 +72,7 @@ def analyze_flags(period_ratios: dict[str, dict], company_name: str) -> list[Cre
     def series(metric: str) -> list[float]:
         return [period_ratios[k].get(metric, SENTINEL) for k in ordered_keys]
 
-    ttm = period_ratios.get("TTM", {})
+    ttm = period_ratios.get("TTM") or (period_ratios.get(ordered_keys[0], {}) if ordered_keys else {})
 
     def get(key: str) -> float:
         return ttm.get(key, SENTINEL)
