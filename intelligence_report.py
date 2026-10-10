@@ -1,10 +1,10 @@
 """
 intelligence_report.py
-Formats trend analysis into human-readable intelligence reports.
+Formats trend analysis into institutional-grade credit intelligence reports.
 
-Produces two outputs:
-1. A structured markdown report (always available, no AI needed)
-2. An optional AI-enhanced narrative using Gemini (when configured)
+Produces:
+1. A structured markdown report (clean institutional typography, no emojis)
+2. An optional AI-enhanced narrative prompt using Gemini
 """
 
 from __future__ import annotations
@@ -36,9 +36,9 @@ def _fmt_val(metric: str, value: float | None) -> str:
         return f"{value:.2f}"
 
     if abs(value) >= 1e9:
-        return f"${value/1e9:.1f}B"
+        return f"${value/1e9:.2f}B"
     if abs(value) >= 1e6:
-        return f"${value/1e6:.0f}M"
+        return f"${value/1e6:.1f}M"
 
     return f"{value:.2f}"
 
@@ -46,121 +46,58 @@ def _fmt_val(metric: str, value: float | None) -> str:
 def format_intelligence_report(report: IntelligenceReport) -> str:
     """
     Generate a structured markdown intelligence report from trend analysis.
+    Clean institutional style without decorative emojis.
     """
     lines: list[str] = []
 
-    lines.append(f"## 📊 Financial Intelligence Report — {report.ticker}")
-    lines.append(f"**Company:** {report.company_name}")
+    lines.append(f"### Executive Trend Synthesis — {report.ticker}")
     lines.append(
-        f"**Analysis Period:** {report.period_range} "
-        f"({report.total_periods} reporting periods)"
+        f"**Issuer:** {report.company_name} &nbsp;|&nbsp; "
+        f"**Horizon:** {report.period_range} ({report.total_periods} annual periods) &nbsp;|&nbsp; "
+        f"**Trajectory:** `{report.overall_trajectory}`"
     )
     lines.append("")
-
-    # Risk Assessment Update Banner
-    lines.append("### 🛡️ Dynamic Risk Assessment Update")
-    lines.append(
-        f"- **Baseline Point-in-Time Risk:** `{report.baseline_risk_rating}`\n"
-        f"- **Trend-Adjusted Risk Assessment:** `{report.updated_risk_rating}` ({report.risk_action})\n"
-        f"- **Assessment Rationale:** {report.risk_update_rationale}"
-    )
+    lines.append(f"{report.summary}")
     lines.append("")
 
-    trajectory_emoji = {
-        "DETERIORATING": "🔴",
-        "MIXED": "🟡",
-        "STABLE": "🟢",
-        "IMPROVING": "🟢",
-    }
-    emoji = trajectory_emoji.get(report.overall_trajectory, "⚪")
-    lines.append(f"### Overall Financial Trajectory: {emoji} {report.overall_trajectory}")
-    lines.append("")
-    lines.append(f"*{report.summary}*")
-    lines.append("")
-
-    # Deteriorating metrics
     if report.deteriorating:
-        lines.append("---")
-        lines.append("### ⚠️ Deteriorating Metrics & Underlying Drivers")
+        lines.append("#### Deteriorating Credit Metrics & Fundamental Drivers")
         lines.append("")
+        lines.append("| Metric | Signal | Streak | Earliest | Latest | Total Change | Underlying Drivers |")
+        lines.append("| :--- | :--- | :--- | ---: | ---: | ---: | :--- |")
 
         for alert in report.deteriorating:
-            severity_icon = {
-                "WARNING": "🔴",
-                "CAUTION": "🟠",
-                "WATCH": "🟡",
-            }.get(alert.severity, "⚪")
-
+            streak = f"{alert.consecutive_periods}Y consecutive" if alert.consecutive_periods > 0 else "Net multi-year"
+            earliest_str = _fmt_val(alert.metric, alert.earliest_value)
+            latest_str = _fmt_val(alert.metric, alert.latest_value)
+            pct_str = f"{alert.total_change_pct:+.1f}%" if alert.total_change_pct is not None else "N/A"
+            drivers_str = "; ".join(alert.drivers) if alert.drivers else "Ratio shift driven by combined numerator/denominator drift"
             lines.append(
-                f"**{severity_icon} [{alert.severity}] {alert.display_name}**"
+                f"| **{alert.display_name}** | `{alert.severity}` | {streak} | "
+                f"{earliest_str} | {latest_str} | {pct_str} | {drivers_str} |"
             )
-            lines.append(f"> {alert.message}")
-            lines.append("")
-
-            if alert.changes:
-                lines.append("| Period | Value | Change | Direction |")
-                lines.append("|--------|-------|--------|-----------|")
-
-                first = alert.changes[0]
-                if first.from_value is not None:
-                    lines.append(
-                        f"| {first.from_year} | {_fmt_val(first.metric, first.from_value)} | — | — |"
-                    )
-
-                for c in alert.changes:
-                    if c.to_value is not None:
-                        pct_str = f"{c.pct_change:+.1f}%" if c.pct_change is not None else "N/A"
-                        dir_emoji = (
-                            "📈" if c.direction == "deteriorated" and METRIC_CONCERN_DIRECTION.get(c.metric) == "rising"
-                            else "📉" if c.direction == "deteriorated"
-                            else "✅" if c.direction == "improved"
-                            else "➡️"
-                        )
-                        lines.append(
-                            f"| {c.to_year} | {_fmt_val(c.metric, c.to_value)} | {pct_str} | {dir_emoji} {c.direction.capitalize()} |"
-                        )
-
-                lines.append("")
-
-            if alert.drivers:
-                lines.append("**Identified Drivers:**")
-                for d in alert.drivers:
-                    lines.append(f"- {d}")
-                lines.append("")
-
-    # Improving metrics
-    if report.improving:
-        lines.append("---")
-        lines.append("### ✅ Improving Metrics")
         lines.append("")
 
+    if report.improving:
+        lines.append("#### Improving Credit Metrics")
+        lines.append("")
+        lines.append("| Metric | Periods Improved | Earliest | Latest | Total Change |")
+        lines.append("| :--- | :--- | ---: | ---: | ---: |")
         for alert in report.improving:
-            lines.append(f"**🟢 {alert.display_name}** — {alert.message}")
+            earliest_str = _fmt_val(alert.metric, alert.earliest_value)
+            latest_str = _fmt_val(alert.metric, alert.latest_value)
+            pct_str = f"{alert.total_change_pct:+.1f}%" if alert.total_change_pct is not None else "N/A"
+            lines.append(
+                f"| **{alert.display_name}** | {alert.consecutive_periods} periods | "
+                f"{earliest_str} | {latest_str} | {pct_str} |"
+            )
+        lines.append("")
 
-            if alert.earliest_value is not None and alert.latest_value is not None:
-                lines.append(
-                    f"> Moved from {_fmt_val(alert.metric, alert.earliest_value)} "
-                    f"to {_fmt_val(alert.metric, alert.latest_value)}"
-                )
-                if alert.total_change_pct is not None:
-                    lines.append(f"> Total change: {alert.total_change_pct:+.1f}%")
-            lines.append("")
-
-    # Stable metrics
     if report.stable:
-        lines.append("---")
-        lines.append("### ➡️ Stable Metrics")
         lines.append(
-            f"The following metrics showed no material change: "
-            f"{', '.join(report.stable)}"
+            f"**Stable Metrics (<5% variance):** {', '.join(report.stable)}"
         )
         lines.append("")
-
-    lines.append("---")
-    lines.append(
-        "*Analysis powered by SQL-based historical data store (`ratio_snapshots`). "
-        "All metrics computed from yfinance annual financial statements.*"
-    )
 
     return "\n".join(lines)
 
@@ -185,7 +122,7 @@ def build_ai_intelligence_prompt(
     for a in report.improving:
         imp_summary += f"- {a.display_name}: {a.message}\n"
 
-    prompt = f"""You are a senior credit analyst at a major financial institution.
+    prompt = f"""You are a senior institutional credit analyst.
 
 TASK: Write a concise 3-paragraph intelligence briefing about {report.company_name} ({report.ticker}) based STRICTLY on the trend analysis data provided below. Do not invent facts.
 
@@ -207,6 +144,6 @@ INSTRUCTIONS:
 2. Paragraph 2: Focus on the most concerning deteriorating trends (if any). Explain the underlying drivers and their implications for creditworthiness.
 3. Paragraph 3: Note any positive or stabilizing trends that offset concerns, and recommend specific monitoring actions.
 
-Keep the tone professional, analytical, and evidence-based. Do not use bullet points. Maximum 300 words.
+Keep the tone professional, analytical, and evidence-based. Do not use bullet points or emojis. Maximum 300 words.
 """
     return prompt
