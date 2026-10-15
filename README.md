@@ -1,311 +1,183 @@
-# RiskForge
+# RiskForge Financial Intelligence
 
-### AI-Assisted Credit Intelligence & Decision Support Platform
+### Corporate Credit Risk Analytics, Historical SQL Data Store & AI Decision Support Platform
 
-RiskForge is a modular credit-risk analytics platform that turns public financial statements into a structured view of leverage, liquidity, debt-servicing capacity, refinancing exposure, downside resilience, and early-warning signals.
+[![Live App](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)](https://riskforgeai.streamlit.app/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Database](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![AI Engine](https://img.shields.io/badge/AI-Google%20Gemini%20API-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 
-The system combines deterministic financial analysis with scenario modelling and a grounded LLM layer that converts the analytical outputs into a structured credit memorandum.
+**RiskForge** is an institutional-grade corporate credit analytics and financial intelligence platform. It converts public financial filings into structured assessments of capital structure, liquidity, debt service capacity, refinancing risk, downside stress resilience, and multi-period risk deterioration.
 
-> **Current application:** Defense & Aerospace corporate credit analysis
-> **Architecture:** Designed as a modular decision-support pipeline rather than a single predictive model
+The platform bridges **deterministic quantitative finance**, **embedded SQL historical analytics**, and **grounded generative AI** to automate credit research workflows from statement ingestion to committee-ready credit memorandums.
+
+> **Live Application:** [riskforgeai.streamlit.app](https://riskforgeai.streamlit.app/)  
+> **Architecture Principle:** Deterministic financial calculations and database-driven analytics remain strictly separate from the generative layer. Numerical facts are computed in code and stored in SQL; the LLM is restricted to evidence-grounded synthesis and memo generation.
 
 ---
 
 ## What RiskForge Does
 
-A traditional credit review involves collecting financial statements, calculating ratios, checking risk thresholds, running downside cases, interpreting the results, and finally writing a credit memo.
+A standard institutional credit underwriting workflow requires collecting multi-year filings, normalizing inconsistent financial statement line items, calculating coverage and leverage metrics, checking credit covenants, stress-testing downside cash flows, evaluating period-over-period metric deterioration, attributing root drivers, and drafting an underwriting credit memo.
 
-RiskForge automates that workflow.
+RiskForge automates this entire pipeline:
 
 ```text
-                    Public Financial Data
-                           │
-                           ▼
-                   ┌─────────────────┐
-                   │  Data Ingestion │
-                   │    yfinance     │
-                   └────────┬────────┘
-                            │
-                            ▼
-                 ┌──────────────────────┐
-                 │ Financial Normalizer │
-                 │ & Ratio Engine       │
-                 └──────────┬───────────┘
-                            │
-              ┌─────────────┼──────────────┐
-              ▼             ▼              ▼
-       Early-Warning    Debt Capacity   Stress Engine
-          Signals          Analysis       Scenarios
-              │             │              │
-              └─────────────┼──────────────┘
-                            ▼
-                 ┌──────────────────────┐
-                 │ Credit Risk Framework│
-                 └──────────┬───────────┘
-                            │
-              ┌─────────────┼──────────────┐
-              ▼             ▼              ▼
-        Refinancing      Covenant       Cash-Flow
-           Risk          Monitoring      Projections
-              │             │              │
-              └─────────────┼──────────────┘
-                            ▼
-                 ┌──────────────────────┐
-                 │ Grounded LLM Layer   │
-                 │   Gemini API         │
-                 └──────────┬───────────┘
-                            ▼
-                 Structured Credit Memo
-                            │
-                            ▼
-                 Dashboard / HTML Report
+                     Public Financial Filings (yfinance)
+                                     │
+                                     ▼
+                     ┌───────────────────────────────┐
+                     │ Data Ingestion & Normalizer   │
+                     │ (Balance Sheet, Income, Cash) │
+                     └───────────────┬───────────────┘
+                                     │
+                                     ▼
+                     ┌───────────────────────────────┐
+                     │ Multi-Period Ratio Engine     │
+                     │ (26 Core Credit Metrics & Z)  │
+                     └───────────────┬───────────────┘
+                                     │
+                                     ▼
+       ┌───────────────────────────────────────────────────────────┐
+       │ SQL Historical Financial Data Store (SQLite / db_manager) │
+       │ (ratio_snapshots: Indexed by ticker & period_year)       │
+       └─────────────────────────────┬─────────────────────────────┘
+                                     │
+        ┌────────────────────────────┼────────────────────────────┐
+        ▼                            ▼                            ▼
+┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│ Risk Deterioration│      │ Capital Structure│       │ Scenario Stress  │
+│ & Driver Engine  │       │ & Debt Capacity  │       │ Engine (Downside)│
+│ (trend_detector) │       │ (debt_capacity)  │       │ (stress_engine)  │
+└───────┬──────────┘       └─────────┬────────┘       └─────────┬────────┘
+        │                            │                          │
+        └────────────────────────────┼──────────────────────────┘
+                                     ▼
+        ┌────────────────────────────┼────────────────────────────┐
+        ▼                            ▼                            ▼
+┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│ Refinancing Risk │       │ Covenant Monitor │       │ Cash Flow Model  │
+│ Assessment       │       │ (Illustrative)   │       │ (3Y Projections) │
+│(refinancing_risk)│       │(covenant_monitor)│       │ (cashflow_model) │
+└───────┬──────────┘       └─────────┬────────┘       └─────────┬────────┘
+        │                            │                          │
+        └────────────────────────────┼──────────────────────────┘
+                                     ▼
+                     ┌───────────────────────────────┐
+                     │ Credit Assessment Framework   │
+                     │ (credit_framework.py)         │
+                     └───────────────┬───────────────┘
+                                     │
+                                     ▼
+                     ┌───────────────────────────────┐
+                     │ Grounded AI Synthesis Layer   │
+                     │ (Gemini 3.5 Flash API Guarded)│
+                     └───────────────┬───────────────┘
+                                     │
+                                     ▼
+          ┌─────────────────────────────────────────────────────┐
+          │ Institutional Terminal Dashboard / Interactive View │
+          │ (Streamlit App / SQL Analytics Workbench)           │
+          └─────────────────────────────────────────────────────┘
 ```
 
-The key design decision is that **the financial analysis remains deterministic and separate from the LLM**. The model is used primarily for synthesis and communication rather than performing the underlying calculations.
+---
+
+## Core Analytical Capabilities
+
+### 1. Multi-Period SQL Historical Data Store (`db_manager.py`)
+RiskForge includes an embedded SQLite analytical database (`ratio_snapshots`) optimized with compound indexes on `(ticker, period_year)`:
+* **26 Tracked Financial Metrics**: Stores balance-sheet items (Total Debt, Net Debt, Cash, Equity, Assets), income-statement metrics (Revenue, EBIT, EBITDA, Net Income, Interest Expense), cash flows (Operating Cash Flow, Free Cash Flow), and computed ratios (Debt/EBITDA, Interest Coverage, Liquidity Ratios, Margins, ROCE, Altman Z-Score).
+* **Idempotent Upsert Storage**: Re-evaluating a company updates existing snapshot records using `INSERT OR REPLACE` to eliminate duplicate filings.
+* **Analytical Query Layer**: Provides optimized SQL helper methods for single-ticker timelines (`get_ticker_history`), time-series metric extraction (`get_metric_timeseries`), peer group cross-sectional comparisons (`get_peer_comparison`), and custom read-only SQL queries (`run_custom_query`).
+
+### 2. Risk Deterioration & Root-Cause Driver Engine (`trend_detector.py`)
+Rather than relying solely on static point-in-time metrics, RiskForge analyzes multi-year trajectory across reporting periods:
+* **Streak & Deterioration Detection**: Identifies metrics experiencing consecutive periods of negative deterioration (`WARNING`), single-period downturns (`CAUTION`), or multi-year structural drift (`WATCH`).
+* **Directional Logic**: Intelligently classifies risk based on metric concern direction (e.g., rising Debt/EBITDA is negative; falling Interest Coverage or Margins is negative).
+* **Underlying Driver Attribution**: When a ratio worsens, the engine isolates the underlying mathematical driver from the SQL store (e.g., *"Total Debt increased from \$20.3B to \$21.7B (+7.1%)"*, *"Interest Expense increased from \$1.0B to \$1.1B (+7.9%)"*).
+* **Negative Distress Protection**: Ensures distressed negative metrics (e.g., negative EBITDA margins or negative interest coverage) are never misclassified as "strengthening" even if losses nominally narrow.
+* **Dynamic Credit Risk Rating Migration**: Automatically evaluates if sustained multi-period deterioration warrants rating migration (e.g., escalating a point-in-time `ELEVATED` rating to `HIGH (ESCALATED)`, or assigning a `NEGATIVE WATCH` / `POSITIVE OUTLOOK`).
+
+### 3. Credit Ratio Engine (`ratio_engine.py`)
+Converts raw, normalized multi-period financial statements into a standardized credit risk profile:
+* **Leverage Metrics**: Gross Debt / EBITDA, Net Debt / EBITDA, Debt / Equity, Debt / Total Assets.
+* **Coverage Metrics**: EBIT Interest Coverage, EBITDA Interest Coverage.
+* **Liquidity & Solvency**: Current Ratio, Quick Ratio, Cash Ratio, Working Capital.
+* **Profitability & Cash Flow**: EBITDA Margin, Net Profit Margin, FCF Margin, Return on Capital Employed (ROCE), Operating Cash Flow, Free Cash Flow.
+* **Bankruptcy Risk**: Altman Z-Score with automatic zone categorization (Distress, Grey, Safe).
+
+### 4. Early-Warning System & Point-in-Time Flags (`signal_flags.py`)
+Monitors multi-period trends and point-in-time ratio thresholds to raise structured risk flags:
+* Severe leverage threshold breaches (`> 4.5x` High Risk, `> 3.5x` Elevated).
+* Critically low interest coverage (`< 1.5x` Critical, `< 2.5x` Low).
+* Sub-1.0x liquidity shortfalls (Current Ratio `< 1.0x`, Quick Ratio `< 0.8x`).
+* Cash-burn conditions (negative Free Cash Flow).
+* Altman Z-Score distress triggers (`< 1.81` Distress Zone, `1.81 - 2.99` Grey Zone).
+
+### 5. Illustrative Debt Capacity Analysis (`debt_capacity.py`)
+Evaluates borrowing capacity and capital structure flexibility under configurable policy caps:
+* Maximum sustainable debt capacity based on user-defined Net Debt / EBITDA constraints.
+* Incremental leverage headroom and unutilized debt capacity.
+* Free cash flow deleveraging constraints and estimated years to retire debt from internal cash generation.
+
+### 6. Downside Scenario Stress Engine (`stress_engine.py`)
+Simulates corporate resilience against macro shocks:
+* **Scenarios**: Base Case, Moderate Downside (-10% Revenue, -200 bps EBITDA Margin, +150 bps Interest Rate), and Severe Stress (-20% Revenue, -400 bps EBITDA Margin, +300 bps Interest Rate).
+* Recomputes stressed earnings, coverage, and leverage to identify whether liquidity buffers survive adverse cycles.
+
+### 7. Refinancing & Rollover Exposure (`refinancing_risk.py`)
+Identifies near-term debt refinancing vulnerability using observable balance sheet proxies:
+* Debt / Free Cash Flow coverage.
+* Cash-to-debt ratios.
+* Interest expense burden relative to operating cash flows.
+
+### 8. Illustrative Covenant Compliance (`covenant_monitor.py`)
+Tests period ratios against standard institutional debt covenants (e.g., Net Leverage `<= 3.75x`, Interest Coverage `>= 3.0x`, Current Ratio `>= 1.1x`):
+* Calculates headroom, percentage cushion to default, and compliance status (`OK`, `TIGHT`, `BREACH`).
+
+### 9. Multi-Market & Global Coverage
+Out of the box, RiskForge supports both single-ticker custom deep dives and 10-company Sector Cohort benchmarks across multiple global equity markets:
+* **United States (NYSE/NASDAQ)**: Defense & Aerospace, Technology, Financials, Healthcare.
+* **India (NSE/BSE)**: Defense & Aerospace, Technology (IT), Financials, Healthcare/Pharma.
+* **United Kingdom (LSE)**: Defense & Aerospace, Financials, Healthcare/Pharma.
+* **Europe (Euronext)**: Defense & Aerospace, Technology, Financials.
+* **Japan (TSE)**: Defense & Aerospace, Technology, Financials.
+* **Custom Issuers**: Accepts any valid global ticker accessible via Yahoo Finance (e.g., `LMT`, `AAPL`, `HAL.NS`, `RR.L`, `ASML.AS`).
 
 ---
 
-## Core Capabilities
+## Grounded AI Synthesis & Demo Safety
 
-### 1. Financial Data Ingestion
-
-RiskForge retrieves annual financial statements through `yfinance` and normalizes inconsistent field names across companies.
-
-The pipeline works with:
-
-* Income statements
-* Balance sheets
-* Cash-flow statements
-* Multiple historical reporting periods
-
-The ingestion layer also handles missing fields and uses fallback mappings for common variations in financial-statement labels.
+RiskForge utilizes the Google Gemini API (`gemini-3.5-flash`) to generate professional, institutional credit memorandums:
+1. **Zero Hallucination Grounding**: The LLM does not compute ratios or perform arithmetic. It receives a strictly structured, verified JSON payload containing pre-computed ratios, stress outcomes, SQL trend alerts, and covenant statuses.
+2. **Deterministic Fallback**: If an API key is missing or quotas are exhausted, RiskForge automatically produces a rule-based credit memorandum so the user experience never breaks.
+3. **Enterprise Rate Limiting & Demo Protection**:
+   * **Per-Session Quota**: Capped at 3 AI memo generations per browser session.
+   * **Global Rate Limiter**: Thread-safe instance-wide hourly budget cap (20 calls/hour).
+   * **SHA-256 Memo Cache**: Identical analysis payloads return instant cached memos without consuming API quota.
+   * **Exponential Backoff**: Resilient retry mechanism for API rate limits (`429`) and service outages (`503`).
 
 ---
 
-### 2. Credit Ratio Engine
-
-The ratio engine converts raw statements into a structured credit profile.
-
-Key metrics include:
-
-* Debt / EBITDA
-* Net Debt / EBITDA
-* Debt / Equity
-* Debt / Assets
-* EBIT Interest Coverage
-* EBITDA Interest Coverage
-* Current Ratio
-* Quick Ratio
-* Cash Ratio
-* EBITDA Margin
-* Net Margin
-* FCF Margin
-* ROCE
-* Free Cash Flow
-* Altman Z-Score
-
-The engine explicitly tracks missing data and data-quality notes rather than silently treating unavailable information as zero.
-
-Where EBITDA is unavailable, the implementation attempts to derive it from EBIT and depreciation before using an explicitly labelled illustrative fallback.
-
----
-
-### 3. Early-Warning System
-
-RiskForge looks beyond point-in-time ratios and identifies deteriorating trends.
-
-The early-warning engine can flag:
-
-* Excessive leverage
-* Rising Debt / EBITDA
-* Weak interest coverage
-* Declining interest coverage
-* Liquidity pressure
-* Negative free cash flow
-* Altman Z-Score distress conditions
-* Other configurable threshold breaches
-
-Each signal contains a severity, category, message, metric, and value so that downstream components can reason over structured risk information.
-
----
-
-### 4. Debt-Capacity Analysis
-
-The debt-capacity module estimates how much additional debt a company could theoretically sustain under configurable leverage assumptions.
-
-It evaluates:
-
-* Current gross leverage
-* Current net leverage
-* Illustrative sustainable debt capacity
-* Leverage headroom
-* Incremental debt capacity
-* FCF-based deleveraging constraints
-
-These figures are explicitly treated as **analytical estimates rather than lender-specific underwriting limits**.
-
----
-
-### 5. Scenario Stress Testing
-
-RiskForge tests the resilience of a company's capital structure under multiple downside scenarios.
-
-Scenarios independently modify assumptions such as:
-
-* Revenue growth / decline
-* EBITDA margin
-* Interest-rate shock
-
-The engine then recalculates:
-
-* Revenue
-* EBITDA
-* EBIT
-* Interest expense
-* Debt / EBITDA
-* Net Debt / EBITDA
-* EBIT interest coverage
-* EBITDA interest coverage
-
-This allows the user to examine how quickly credit metrics deteriorate when operating or financing conditions worsen.
-
----
-
-### 6. Refinancing-Risk Assessment
-
-Because public data does not reliably provide complete legal debt maturity schedules, RiskForge does not fabricate them.
-
-Instead, the refinancing module assesses point-in-time refinancing pressure through observable proxies:
-
-* Net leverage
-* Debt / FCF
-* Interest burden
-* Cash coverage
-
-The output identifies the factors contributing to the resulting refinancing-risk classification.
-
----
-
-### 7. Illustrative Covenant Monitoring
-
-RiskForge can test financial ratios against configurable covenant thresholds.
-
-It evaluates:
-
-* Maximum Net Debt / EBITDA
-* Maximum Debt / EBITDA
-* Minimum Interest Coverage
-* Minimum Current Ratio
-
-For each metric it calculates:
-
-* Current value
-* Threshold
-* Headroom
-* Headroom percentage
-* Breach / Tight / OK status
-
-The thresholds are explicitly labelled **illustrative** and are not represented as actual legal covenants.
-
----
-
-### 8. Cash-Flow Projection
-
-The cash-flow model produces simplified forward projections using configurable assumptions for:
-
-* Revenue growth
-* EBITDA margin
-* Capital-expenditure margin
-
-It produces projected:
-
-* Revenue
-* EBITDA
-* Capex
-* Free cash flow
-
-The model clearly distinguishes these outputs from historical financial statements and labels them as illustrative projections rather than forecasts.
-
----
-
-### 9. Credit Assessment Framework
-
-The credit framework synthesizes the outputs of the analytical modules into a structured assessment.
-
-It identifies:
-
-* Financial strengths
-* Financial weaknesses
-* Key risk indicators
-* Credit-view classification
-* Monitoring priorities
-
-This intermediate structured representation is important because it gives the LLM a compact, machine-readable analytical context instead of asking it to infer financial conclusions directly from raw data.
-
----
-
-## LLM Layer
-
-RiskForge uses the Gemini API to generate structured credit memoranda from the outputs of the analytical engines.
-
-The LLM is **not responsible for calculating financial ratios**.
-
-Instead:
-
-```text
-Financial Statements
-       ↓
-Deterministic Calculations
-       ↓
-Risk / Stress Analysis
-       ↓
-Structured Analytical Outputs
-       ↓
-LLM
-       ↓
-Human-readable Credit Memo
-```
-
-The prompt layer is explicitly designed to reduce unsupported generation. It instructs the model to:
-
-* Use only the supplied analytical data
-* Avoid inventing financial facts
-* Acknowledge unavailable information
-* Distinguish assumptions from observed data
-* Treat covenant thresholds and stress scenarios as illustrative
-* Produce a structured professional credit memo
-
-There is also a fallback path that produces a deterministic credit memo when the Gemini API is unavailable.
-
-This separation makes the system easier to reason about: **the numerical layer determines the analytical facts; the LLM turns those facts into readable decision-support output.**
-
----
-
-## Dashboard
-
-The project provides two interfaces.
-
-### Streamlit Application
-
-`app.py` provides an interactive interface for:
-
-* Selecting a company or sector
-* Selecting markets
-* Running comprehensive analysis
-* Configuring analytical assumptions
-* Generating AI-assisted credit output
-
-### HTML Reporting Pipeline
-
-`main.py` orchestrates the full analysis pipeline and produces a self-contained HTML report containing:
-
-* Company-level credit summaries
-* Risk classifications
-* Financial metrics
-* Stress scenarios
-* Early-warning signals
-* Credit analysis
-* Visual reporting
+## Institutional Terminal UI
+
+The Streamlit interface ([app.py](app.py)) is designed to evoke an institutional credit workstation (Bloomberg / S&P Capital IQ style):
+* **Custom Typography**: Clean typography pairing `Inter` for UI elements and `IBM Plex Mono` for numerical precision and status indicators.
+* **Terminal Masthead & Live Telemetry**: Live status indicators for the active SQLite data store and AI engine quota.
+* **5-Card Credit Scorecard Strip**:
+  1. *Point-in-Time Risk*: Rating derived from the latest financial filing.
+  2. *Trend-Adjusted Risk*: Dynamic rating migration (e.g., `ELEVATED → HIGH (ESCALATED)`).
+  3. *Historical Trajectory*: Multi-year trajectory status (`DETERIORATING`, `MIXED`, `STABLE`, `IMPROVING`).
+  4. *Refinancing Risk*: Categorization of maturity and service risk.
+  5. *Altman Z-Score*: Numerical score with credit zone categorization.
+* **Tabbed Credit Dossier**:
+  * **Financial Intelligence & SQL**: Deteriorating metrics table with driver attribution, multi-period ratio history, interactive time-series chart, and an embedded **SQL Analytics Workbench** with pre-configured query templates.
+  * **Executive Credit Memo**: AI-generated structured credit memorandum.
+  * **Fundamentals & Warnings**: Credit strengths/weaknesses and early-warning signal badges.
+  * **Debt Capacity & Covenants**: Leverage headroom calculators and covenant headroom tables.
+  * **Refinancing & Stress Testing**: Downside stress matrices and rollover risk factors.
+* **State Persistence**: Full session-state caching ensures custom SQL queries, template selections, and chart customizations maintain their state across interactions without resetting the page.
 
 ---
 
@@ -314,62 +186,152 @@ The project provides two interfaces.
 ```text
 RiskForge/
 │
-├── app.py                 # Streamlit application
-├── main.py                # End-to-end pipeline orchestrator
+├── app.py                   # Institutional Streamlit terminal application
+├── main.py                  # CLI pipeline & standalone HTML report generator
+├── config.py                # Central thresholds, covenant definitions & assumptions
+├── requirements.txt         # Core dependencies
 │
-├── data_fetcher.py        # Financial statement ingestion
-├── ratio_engine.py        # Core financial and credit metrics
-├── signal_flags.py        # Early-warning and trend detection
+├── db_manager.py            # SQLite historical financial data store & query layer
+├── trend_detector.py        # Multi-period deterioration detection & driver attribution
+├── intelligence_report.py   # Trend intelligence report formatting & prompt building
 │
-├── debt_capacity.py       # Debt capacity and leverage headroom
-├── stress_engine.py       # Downside scenario analysis
-├── refinancing_risk.py    # Refinancing-risk assessment
-├── covenant_monitor.py    # Illustrative covenant testing
-├── cashflow_model.py      # Forward cash-flow modelling
-├── sector_overlay.py      # Sector-specific context
-├── credit_framework.py    # Structured credit assessment
+├── data_fetcher.py          # Yahoo Finance statement ingestion & alias normalization
+├── ratio_engine.py          # 26 credit ratios, margins & Altman Z-Score calculations
+├── signal_flags.py          # Early-warning signal flags & baseline risk ratings
 │
-├── memo_generator.py      # Gemini-powered credit memo generation
-├── report.py              # HTML dashboard/report generation
-├── config.py              # Thresholds and modelling assumptions
+├── debt_capacity.py         # Debt capacity limits & deleveraging capacity
+├── stress_engine.py         # Macro scenario stress testing (Base / Moderate / Severe)
+├── refinancing_risk.py      # Refinancing risk & rollover vulnerability assessment
+├── covenant_monitor.py      # Illustrative covenant headroom & breach analysis
+├── cashflow_model.py        # 3-year cash flow and operating projections
+├── sector_overlay.py        # Sector context & peer categorization
+├── credit_framework.py      # Consolidated structured credit assessment model
 │
-├── requirements.txt       # Python dependencies
+├── memo_generator.py        # Guarded Gemini API integration & fallback credit memo
+├── report.py                # Standalone HTML/JavaScript report generator
 │
 └── tests/
-    └── test_modules.py    # Deterministic unit tests
+    └── test_modules.py      # Unit test suite for deterministic calculation engines
 ```
 
 ---
 
-## Engineering Decisions
+## Getting Started
 
-### Deterministic core, probabilistic interface
+### 1. Prerequisites
+* Python 3.10, 3.11, or 3.12+
+* Git
 
-Financial calculations are implemented in Python rather than delegated to the language model. This makes core outputs reproducible and testable.
+### 2. Installation
 
-The LLM is placed at the interpretation layer, where natural-language generation provides value without becoming the source of truth for numerical calculations.
+```bash
+# Clone the repository
+git clone git@github.com:NotMayankfr/RiskForge.git
+cd RiskForge
 
-### Graceful handling of incomplete data
+# Create and activate virtual environment
+python -m venv .venv
 
-Public financial datasets are not perfectly standardized. RiskForge therefore:
+# On Linux/macOS:
+source .venv/bin/activate
+# On Windows PowerShell:
+.venv\Scripts\Activate.ps1
 
-* Uses alias-based field matching
-* Tracks unavailable metrics
-* Propagates `NaN` instead of silently inventing values
-* Records data-quality notes
-* Provides explicit methodology notes for proxy calculations
+# Install dependencies
+pip install -r requirements.txt
+```
 
-### Modular architecture
+### 3. Configure Gemini API (Optional)
+To enable AI-synthesized credit memos, obtain an API key from Google AI Studio and configure it:
 
-Each analytical function is separated into an independent module.
+**Option A — Environment Variable:**
+```bash
+# Linux/macOS:
+export GEMINI_API_KEY="your-api-key-here"
 
-This makes individual components replaceable without redesigning the entire system. For example, the same credit-analysis framework can accept a different data source or domain-specific input layer without requiring the stress-testing or reporting engines to be rewritten.
+# Windows PowerShell:
+$env:GEMINI_API_KEY="your-api-key-here"
+```
 
-### Testable analytical logic
+**Option B — Streamlit Secrets (`.streamlit/secrets.toml`):**
+```toml
+GEMINI_API_KEY = "your-api-key-here"
+```
+*(If no API key is provided, the platform automatically utilizes deterministic rule-based credit memos.)*
 
-The core analytical modules have deterministic unit tests covering financial calculations and risk logic.
+### 4. Running the Application
 
-Run:
+**Launch the Interactive Web Application:**
+```bash
+streamlit run app.py
+```
+
+**Generate Standalone Offline HTML Report (CLI):**
+```bash
+# With AI Memo generation:
+python main.py
+
+# Without LLM calls (deterministic only):
+python main.py --no-memo
+```
+
+---
+
+## SQL Analytics Workbench Examples
+
+The built-in SQLite data store enables custom financial analytics. Here are sample queries you can execute directly within the dashboard's SQL Workbench:
+
+#### Multi-Year Leverage & Coverage Evolution
+```sql
+SELECT 
+    period_year,
+    ROUND(revenue / 1e9, 2) AS revenue_bn,
+    ROUND(ebitda / 1e9, 2) AS ebitda_bn,
+    ROUND(total_debt / 1e9, 2) AS debt_bn,
+    ROUND(debt_ebitda, 2) AS debt_ebitda,
+    ROUND(ebit_coverage, 2) AS interest_coverage,
+    ROUND(z_score, 2) AS altman_z
+FROM ratio_snapshots
+WHERE ticker = 'LMT'
+ORDER BY period_year ASC;
+```
+
+#### Year-over-Year Deterioration Delta
+```sql
+SELECT 
+    cur.period_year AS year,
+    ROUND(prev.debt_ebitda, 2) AS prior_leverage,
+    ROUND(cur.debt_ebitda, 2) AS current_leverage,
+    ROUND(cur.debt_ebitda - prev.debt_ebitda, 2) AS leverage_delta,
+    ROUND(cur.ebit_coverage - prev.ebit_coverage, 2) AS coverage_delta
+FROM ratio_snapshots cur
+JOIN ratio_snapshots prev 
+  ON cur.ticker = prev.ticker AND cur.period_year = prev.period_year + 1
+WHERE cur.ticker = 'LMT'
+ORDER BY cur.period_year ASC;
+```
+
+#### Cross-Company Leverage Ranking
+```sql
+SELECT 
+    ticker,
+    company_name,
+    sector,
+    period_year,
+    ROUND(debt_ebitda, 2) AS debt_ebitda,
+    ROUND(ebit_coverage, 2) AS ebit_coverage,
+    ROUND(z_score, 2) AS z_score,
+    risk_rating
+FROM ratio_snapshots r1
+WHERE period_year = (SELECT MAX(period_year) FROM ratio_snapshots r2 WHERE r2.ticker = r1.ticker)
+ORDER BY debt_ebitda DESC;
+```
+
+---
+
+## Running Automated Tests
+
+Run the test suite to verify the deterministic financial calculation modules and risk logic:
 
 ```bash
 python -m unittest tests/test_modules.py
@@ -377,174 +339,15 @@ python -m unittest tests/test_modules.py
 
 ---
 
-## Data & Modelling Limitations
+## Limitations & Disclaimers
 
-RiskForge is a **decision-support and analytical prototype**, not a production underwriting system.
-
-Important limitations include:
-
-* Data is retrieved from public financial information through `yfinance`.
-* `yfinance` does not reliably expose complete legal debt maturity schedules.
-* Actual loan agreements and legal covenant definitions are unavailable.
-* Covenant thresholds used by the application are illustrative.
-* Forward projections are assumption-driven scenarios, not forecasts.
-* Some financial metrics may use proxy methodologies when source data is unavailable.
-* The original Altman Z-Score implementation uses a book-equity proxy where market capitalization is unavailable, which can reduce comparability across firms and industries.
-* The current sector overlay is configured for Defense & Aerospace companies.
-* Results should be independently validated before being used for a real lending or investment decision.
-
----
-
-## Installation
-
-### 1. Clone the repository
-
-```bash
-git clone git@github.com:NotMayankfr/RiskForge.git
-cd RiskForge
-```
-
-### 2. Create a virtual environment
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## Configuration
-
-RiskForge uses the Gemini API for AI-assisted memo generation.
-
-Set the API key as an environment variable:
-
-```bash
-export GEMINI_API_KEY="your-api-key"
-```
-
-On Windows PowerShell:
-
-```powershell
-$env:GEMINI_API_KEY="your-api-key"
-```
-
-The application also supports entering the API key through the Streamlit interface.
-
-**Never commit API keys or credentials to the repository.**
-
----
-
-## Running the Project
-
-### Interactive application
-
-```bash
-streamlit run app.py
-```
-
-### Full command-line pipeline
-
-```bash
-python main.py
-```
-
-To run the analytical pipeline without LLM memo generation:
-
-```bash
-python main.py --no-memo
-```
-
----
-
-## Example Workflow
-
-For a selected company, RiskForge approximately follows:
-
-```text
-Ticker
-  ↓
-Annual Financial Statements
-  ↓
-Financial Normalization
-  ↓
-Historical Ratios
-  ↓
-Trend & Early-Warning Analysis
-  ↓
-Debt Capacity
-  ↓
-Stress Scenarios
-  ↓
-Refinancing Risk
-  ↓
-Covenant Monitoring
-  ↓
-Cash-Flow Projection
-  ↓
-Credit Framework
-  ↓
-Gemini-Assisted Credit Memo
-  ↓
-Interactive Report
-```
-
-The resulting output is intended to answer questions such as:
-
-> How leveraged is the company?
-
-> How well can operating earnings service interest?
-
-> Is liquidity deteriorating?
-
-> How much illustrative leverage headroom exists?
-
-> What happens to credit metrics under a downside scenario?
-
-> Which indicators warrant further monitoring?
-
-> Can the analytical findings be communicated as a structured credit memo?
-
----
-
-## Why I Built It
-
-Credit analysis is often presented as a collection of financial ratios. RiskForge approaches it as a **workflow and systems problem**.
-
-The objective was to connect data ingestion, financial reasoning, scenario analysis, risk detection, and AI-assisted communication into one reproducible pipeline.
-
-The result is a system where each stage has a defined responsibility:
-
-**data is collected → metrics are calculated → risks are surfaced → scenarios are tested → evidence is synthesized → conclusions are communicated.**
-
-That architecture is intentionally more important than any single metric or model.
-
----
-
-## Tech Stack
-
-**Language:** Python
-
-**Data & Analytics:** Pandas, yfinance
-
-**Application:** Streamlit
-
-**AI:** Google Gemini API
-
-**Reporting:** HTML, JavaScript / Chart.js
-
-**Testing:** Python `unittest`
-
-**Architecture:** Modular pipeline with deterministic analytical engines and an LLM synthesis layer
+* **Decision-Support Prototype**: RiskForge is designed as an analytical decision-support prototype, not a certified credit rating agency or production underwriting system.
+* **Public Data Fidelity**: Financial data is sourced from public filings via `yfinance`. Certain proprietary line items (e.g., exact legal debt maturity schedules, off-balance-sheet commitments, bilateral bank covenants) may be unavailable in standardized public disclosures.
+* **Illustrative Policies**: Debt capacity limits and covenant thresholds represent standard institutional rules of thumb and do not reflect specific legal credit agreements.
+* **Independent Due Diligence**: Any outputs or simulated stress outcomes must be verified against primary audited financial statements before making lending or investment decisions.
 
 ---
 
 ## License
 
-This project is intended for educational, research, and analytical use.
+This project is licensed for educational, research, and institutional decision-support prototyping.
