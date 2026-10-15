@@ -137,7 +137,7 @@ Tests period ratios against standard institutional debt covenants (e.g., Net Lev
 * Calculates headroom, percentage cushion to default, and compliance status (`OK`, `TIGHT`, `BREACH`).
 
 ### 9. Multi-Market & Global Coverage
-Out of the box, RiskForge supports both single-ticker custom deep dives and 10-company Sector Cohort benchmarks across multiple global equity markets:
+RiskForge supports both single-issuer deep dives and cross-sectional Sector Peer Group benchmarks across major global equity markets:
 * **United States (NYSE/NASDAQ)**: Defense & Aerospace, Technology, Financials, Healthcare.
 * **India (NSE/BSE)**: Defense & Aerospace, Technology (IT), Financials, Healthcare/Pharma.
 * **United Kingdom (LSE)**: Defense & Aerospace, Financials, Healthcare/Pharma.

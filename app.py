@@ -538,7 +538,7 @@ with st.container():
     with c_mode:
         analysis_mode = st.selectbox(
             "Analysis Scope",
-            ["Single Issuer Deep Dive", "Sector Cohort (Top 10)"],
+            ["Single Issuer Deep Dive", "Sector Peer Group / Cohort"],
         )
     with c_mkt:
         market_choice = st.selectbox("Exchange / Jurisdiction", list(MARKET_SECTOR_MAP.keys()))
@@ -704,7 +704,7 @@ if "analysis_results" in st.session_state and st.session_state.analysis_results:
     active_sector = st.session_state.get("last_sector_str", sector_str)
     active_market = st.session_state.get("last_market_choice", market_choice)
 
-    if active_mode == "Sector Cohort (Top 10)" and results:
+    if active_mode.startswith("Sector") and results:
         st.markdown(
             f'<div class="rf-section-header">SECTOR COHORT OVERVIEW &mdash; {active_sector.upper()} ({active_market})</div>',
             unsafe_allow_html=True,
